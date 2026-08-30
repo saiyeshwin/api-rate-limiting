@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: #F7F8FC;
+    color: #171A2B;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Material Design 3 Emphasized Transitions */
+.md-transition {
+  transition-property: all;
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Active State Tactile Press Feedback */
+.md-active-press:active {
+  transform: scale(0.95);
+  transition-duration: 150ms;
+}
+
+/* Custom Scrollbars to fit the rounded aesthetic */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F3EDF7;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E7E0EC;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #79747E;
+}

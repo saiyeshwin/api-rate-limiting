@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: api-observability-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_docker_pass
+      POSTGRES_DB: api_observability
+    ports:
+      - "5434:5432" # Exposed on port 5434 on the host to prevent local service conflicts
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Mount the schema file to initialize the DB automatically on first run
+      - ./server/src/db/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: api-observability-redis
+    ports:
+      - "6380:6379" # Exposed on port 6380 on the host to prevent local service conflicts
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  server:
+    build: ./server
+    container_name: api-observability-server
+    environment:
+      PORT: 5000
+      DATABASE_URL: postgresql://postgres:postgres_docker_pass@db:5432/api_observability
+      REDIS_URL: redis://redis:6379
+      USE_MOCK_REDIS: "false" # Uses the actual Redis container for sliding window checks
+      JWT_SECRET: super_secret_jwt_token_for_api_observability_platform_docker_98765
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  client:
+    build: ./client
+    container_name: api-observability-client
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
