@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const newman = require('newman');
 const { runRateLimitBreachTest } = require('./test-suites/rate-limit-breach.test');
+const { runDbValidationSuite } = require('./test-suites/db-validation.test');
 
 const reportsDir = path.join(__dirname, 'reports');
 if (!fs.existsSync(reportsDir)) {
@@ -60,18 +61,22 @@ newman.run({
     });
   }
 
-  // Next: Run Dedicated 101-Requests Rate Limit Breach Test
-  console.log('Running Step 2: High-Volume Rate Limit Breach (101 requests benchmark)...');
+  // Step 2: Run SQL Database Integrity Validation Suite (TC_DB_001 - TC_DB_003)
+  console.log('Running Step 2: Direct PostgreSQL Database Validation (TC_DB_001 - TC_DB_003)...');
+  const dbSuitePassed = await runDbValidationSuite();
+
+  // Step 3: Run Dedicated 101-Requests Rate Limit Breach Test (TC_STRESS_101)
+  console.log('Running Step 3: High-Volume Rate Limit Breach (101 requests benchmark)...');
   const breachTestPassed = await runRateLimitBreachTest();
 
   console.log('================================================================');
   console.log('🏁 FINAL TEST SUITE RESULTS');
   console.log('================================================================');
   
-  const allPassed = (stats.assertions.failed === 0) && breachTestPassed;
+  const allPassed = (stats.assertions.failed === 0) && dbSuitePassed && breachTestPassed;
 
   if (allPassed) {
-    console.log('🎉 STATUS: ALL TESTS PASSED (100% SUCCESS RATE)');
+    console.log('🎉 STATUS: ALL TESTS PASSED (100% SUCCESS RATE ACROSS ALL TIERS)');
     console.log(`📁 Detailed Interactive HTML Report: ${reportPath}`);
     process.exit(0);
   } else {

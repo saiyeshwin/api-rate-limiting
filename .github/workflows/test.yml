@@ -7,8 +7,11 @@ on:
     branches: [ main, master ]
 
 jobs:
-  test:
-    name: Run Automated API Test Suite
+  # -------------------------------------------------------------
+  # Job 1: API Functional, Negative, Database & Rate Limit Tests
+  # -------------------------------------------------------------
+  api-and-db-tests:
+    name: API & Database Automated Test Suite (Newman + SQL + 101 Breach)
     runs-on: ubuntu-latest
 
     services:
@@ -77,19 +80,116 @@ jobs:
       - name: Wait for Server to be Healthy
         run: |
           timeout 30 bash -c 'until curl -s http://localhost:5000/health | grep -q "ok"; do sleep 1; done'
-          echo "Server is UP and ready for testing!"
+          echo "Server is UP and ready for API testing!"
 
-      - name: Execute Automated QA & Rate Limit Test Suite
+      - name: Execute Automated QA, SQL DB & Rate Limit Test Suite
         env:
           BASE_URL: http://localhost:5000
+          DATABASE_URL: postgresql://postgres:root@localhost:5432/api_observability
         run: |
           cd tests
           npm test
 
-      - name: Upload HTML Test Report Artifact
+      - name: Upload Newman HTML Test Report Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: newman-html-test-report
           path: tests/reports/index.html
+          retention-days: 14
+
+  # -------------------------------------------------------------
+  # Job 2: Selenium WebDriver UI Automation Tests (Java + TestNG)
+  # -------------------------------------------------------------
+  ui-selenium-tests:
+    name: End-to-End UI Automation Suite (Selenium + TestNG)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: root
+          POSTGRES_DB: api_observability
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Initialize PostgreSQL Schema
+        run: |
+          PGPASSWORD=root psql -h localhost -U postgres -d api_observability -f server/src/db/schema.sql
+
+      - name: Install Server & Client Dependencies
+        run: |
+          cd server && npm ci
+          cd ../client && npm ci
+
+      - name: Start Server Application (Port 5000)
+        env:
+          PORT: 5000
+          DATABASE_URL: postgresql://postgres:root@localhost:5432/api_observability
+          REDIS_URL: redis://localhost:6379
+          USE_MOCK_REDIS: "false"
+          JWT_SECRET: ci_test_secret_jwt_key_987654321
+        run: |
+          cd server
+          npm start &
+
+      - name: Start Client Application (Port 3000)
+        run: |
+          cd client
+          npm run dev &
+
+      - name: Wait for Full Platform Readiness
+        run: |
+          timeout 30 bash -c 'until curl -s http://localhost:5000/health | grep -q "ok"; do sleep 1; done'
+          timeout 30 bash -c 'until curl -s http://localhost:3000 | grep -q "<html"; do sleep 1; done'
+          echo "Server & Client are UP and ready for Selenium UI testing!"
+
+      - name: Execute Selenium WebDriver UI Tests (Headless Chrome)
+        run: |
+          cd tests/ui
+          mvn clean test -Dheadless=true -DbaseUrl=http://localhost:3000
+
+      - name: Upload TestNG HTML Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testng-html-report
+          path: tests/ui/target/surefire-reports/
           retention-days: 14

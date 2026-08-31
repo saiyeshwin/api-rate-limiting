@@ -86,13 +86,17 @@ node test-strategies.js
 
 ---
 
-## 🧪 Automated Quality Engineering & API Test Suite
+## 🧪 Automated Quality Engineering, Database & UI Test Suite
 
-The platform includes a test suite located in `/tests` powered by **Postman**, **Newman CLI**, **Chai Assertions**, and **`newman-reporter-htmlextra`** for interactive HTML test reporting, alongside a dedicated **101-Request High-Volume Rate Limit Breach Benchmark**.
+The platform includes a multi-tiered Quality Engineering automation framework located in `/tests`:
+- **API & Rate Limiting Suite**: Built with **Postman**, **Newman CLI**, and **Chai Assertions** with HTML reporting.
+- **SQL Database Validation Suite**: Direct **PostgreSQL** table integrity and hash validation using Node `pg`.
+- **High-Volume Concurrency Benchmark**: Dedicated **101-Requests rapid breach test** asserting exact boundary throttling.
+- **End-to-End UI Automation Suite**: Built with **Selenium WebDriver 4**, **Java 17**, **TestNG**, and the **Page Object Model (POM)** pattern in [`/tests/ui`](tests/ui).
 
-### 📋 Test Scenarios Overview
+### 📋 Test Scenarios & Traceability Matrix
 
-| Test ID | Area | Method & Route | Scenario / Purpose | Expected Status |
+| Test ID | Area / Layer | Method & Route | Scenario / Purpose | Expected Status |
 | :--- | :--- | :--- | :--- | :---: |
 | **`TC_HLTH_001`** | **Health** | `GET /health` | Platform availability check | `200 OK` |
 | **`TC_AUTH_001-003`**| **Auth** | `POST /api/auth/*` | Registration, login, profile & JWT validation | `200 / 201` |
@@ -104,41 +108,46 @@ The platform includes a test suite located in `/tests` powered by **Postman**, *
 | **`TC_GW_004`**      | **Breach** | `GET /gw/:id` | 4th request rate limit breach rejection | `429 Too Many Requests` |
 | **`TC_GW_005-009`**  | **Negative** | `GET /gw/:id` | Missing key, invalid key, revoked key, unknown UUID | `401 / 404` |
 | **`TC_OBS_001-002`** | **Analytics**| `GET /api/dashboard/summary`| Dashboard latency & P95 metrics aggregation | `200 OK` |
+| **`TC_DB_001`**      | **SQL DB** | Direct Query | **SHA-256 Hash & Prefix Match in PostgreSQL** | `Hash Verified` |
+| **`TC_DB_002`**      | **SQL DB** | Direct Query | **Revocation Timestamp Set in PostgreSQL** | `Timestamp Set` |
+| **`TC_DB_003`**      | **SQL DB** | Direct Query | **Cascade Foreign Key Deletion Integrity** | `0 Rows Left` |
 | **`TC_STRESS_101`**  | **Stress** | `GET /gw/:id` | **101-Requests Concurrency Benchmark** (100x 200, 1x 429)| `200 / 429` |
+| **`TC_UI_001`**      | **Selenium** | `/signup` | User registration flow via React form | `Redirect to /` |
+| **`TC_UI_002-003`**  | **Selenium** | `/login` | Valid login and negative invalid password alert | `Redirect / Error` |
+| **`TC_UI_004`**      | **Selenium** | `/` | Dashboard summary cards and navbar rendering | `Cards Visible` |
+| **`TC_UI_005`**      | **Selenium** | `/apis/register`| Register API endpoint via UI and verify in table list | `API Listed` |
 
-### 🚀 Running the QA Test Suite Locally
+### 🚀 Running the Automated Test Suites Locally
 
-1. **Run Full Suite & Generate HTML Report**:
+1. **Run Full API + Database + Concurrency Suite**:
    ```bash
    npm run test:qa
    ```
-2. **Run Only Newman Collection**:
+2. **Run Only SQL Database Validation**:
    ```bash
-   npm run test:newman --prefix tests
+   npm run test:db --prefix tests
    ```
-3. **Run Only High-Volume Rate Limit Breach (101 Requests)**:
+3. **Run High-Concurrency 101-Requests Rate Limit Breach**:
    ```bash
    npm run test:breach --prefix tests
    ```
+4. **Run Selenium WebDriver UI Tests (Java + TestNG)**:
+   ```bash
+   cd tests/ui
+   mvn clean test
+   ```
 
-### 📊 Interactive HTML Test Report
+### 📊 Test Reports & Dashboards
 
-After execution, the Newman HTML Extra report is generated at `tests/reports/index.html`. Open it in any browser:
-```bash
-# Windows
-start tests/reports/index.html
-
-# macOS
-open tests/reports/index.html
-```
+- **Newman HTML Extra Report**: Generated at `tests/reports/index.html` (open via `start tests/reports/index.html`).
+- **TestNG HTML UI Report**: Generated at `tests/ui/target/surefire-reports/index.html`.
 
 ### 🔄 CI/CD Pipeline (GitHub Actions)
 
-A GitHub Actions workflow is configured at [`.github/workflows/test.yml`](.github/workflows/test.yml). On every `push` and `pull_request` to `main`:
-1. Launches ephemeral **PostgreSQL 16** and **Redis 7** service containers.
-2. Initializes schema tables and starts the Express gateway.
-3. Executes the complete Newman automated test suite and high-concurrency 101-request breach test.
-4. Uploads the generated `newman-html-test-report` HTML artifact to GitHub Actions.
+A GitHub Actions workflow is active at [`.github/workflows/test.yml`](.github/workflows/test.yml) with two parallel jobs:
+1. **`api-and-db-tests`**: Launches PostgreSQL 16 & Redis 7 service containers, starts the backend, executes Newman API test collection, runs direct PostgreSQL SQL integrity validation (`TC_DB_001-003`), runs the 101-request breach benchmark, and uploads `newman-html-test-report`.
+2. **`ui-selenium-tests`**: Starts backend and frontend services, launches headless Google Chrome via Selenium WebDriver 4, executes TestNG UI test suite (`TC_UI_001-005`), and uploads `testng-html-report`.
+
 
 ---
 

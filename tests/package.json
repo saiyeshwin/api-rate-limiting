@@ -1,11 +1,12 @@
 {
   "name": "api-observability-qa-suite",
   "version": "1.0.0",
-  "description": "Automated Quality Engineering & API Test Suite for API Rate Limiting and Observability Platform",
+  "description": "Automated Quality Engineering, API & Database Test Suite for API Rate Limiting and Observability Platform",
   "main": "run-tests.js",
   "scripts": {
     "test": "node run-tests.js",
     "test:newman": "newman run postman_collection.json -e postman_environment.json -r cli,htmlextra --reporter-htmlextra-export reports/index.html",
+    "test:db": "node test-suites/db-validation.test.js",
     "test:breach": "node test-suites/rate-limit-breach.test.js",
     "test:all": "node run-tests.js"
   },
@@ -16,6 +17,7 @@
     "newman",
     "api-testing",
     "rate-limiting",
+    "database-testing",
     "htmlextra"
   ],
   "author": "Quality Engineering Team",
@@ -23,6 +25,7 @@
   "dependencies": {
     "axios": "^1.7.9",
     "newman": "^6.2.1",
-    "newman-reporter-htmlextra": "^1.23.1"
+    "newman-reporter-htmlextra": "^1.23.1",
+    "pg": "^8.13.1"
   }
 }
