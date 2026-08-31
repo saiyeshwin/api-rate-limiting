@@ -86,6 +86,62 @@ node test-strategies.js
 
 ---
 
+## 🧪 Automated Quality Engineering & API Test Suite
+
+The platform includes a test suite located in `/tests` powered by **Postman**, **Newman CLI**, **Chai Assertions**, and **`newman-reporter-htmlextra`** for interactive HTML test reporting, alongside a dedicated **101-Request High-Volume Rate Limit Breach Benchmark**.
+
+### 📋 Test Scenarios Overview
+
+| Test ID | Area | Method & Route | Scenario / Purpose | Expected Status |
+| :--- | :--- | :--- | :--- | :---: |
+| **`TC_HLTH_001`** | **Health** | `GET /health` | Platform availability check | `200 OK` |
+| **`TC_AUTH_001-003`**| **Auth** | `POST /api/auth/*` | Registration, login, profile & JWT validation | `200 / 201` |
+| **`TC_AUTH_004-005`**| **Negative** | `POST /api/auth/*` | Missing fields & invalid credentials rejection | `400 / 401` |
+| **`TC_API_001-006`** | **API CRUD** | `/api/apis/*` | Endpoint creation across Sliding/Fixed/Token Bucket | `200 / 201` |
+| **`TC_API_007-009`** | **Negative** | `/api/apis/*` | Malformed URL protocol, missing name, missing token | `400 / 401` |
+| **`TC_KEY_001-003`** | **Keys** | `/api/keys/*` | Key generation, prefix masking, missing ID validation | `200 / 201 / 400` |
+| **`TC_GW_001-003`**  | **Gateway** | `GET /gw/:id` | Allowed proxy hits (Remaining: 2 -> 1 -> 0) | `200 OK` |
+| **`TC_GW_004`**      | **Breach** | `GET /gw/:id` | 4th request rate limit breach rejection | `429 Too Many Requests` |
+| **`TC_GW_005-009`**  | **Negative** | `GET /gw/:id` | Missing key, invalid key, revoked key, unknown UUID | `401 / 404` |
+| **`TC_OBS_001-002`** | **Analytics**| `GET /api/dashboard/summary`| Dashboard latency & P95 metrics aggregation | `200 OK` |
+| **`TC_STRESS_101`**  | **Stress** | `GET /gw/:id` | **101-Requests Concurrency Benchmark** (100x 200, 1x 429)| `200 / 429` |
+
+### 🚀 Running the QA Test Suite Locally
+
+1. **Run Full Suite & Generate HTML Report**:
+   ```bash
+   npm run test:qa
+   ```
+2. **Run Only Newman Collection**:
+   ```bash
+   npm run test:newman --prefix tests
+   ```
+3. **Run Only High-Volume Rate Limit Breach (101 Requests)**:
+   ```bash
+   npm run test:breach --prefix tests
+   ```
+
+### 📊 Interactive HTML Test Report
+
+After execution, the Newman HTML Extra report is generated at `tests/reports/index.html`. Open it in any browser:
+```bash
+# Windows
+start tests/reports/index.html
+
+# macOS
+open tests/reports/index.html
+```
+
+### 🔄 CI/CD Pipeline (GitHub Actions)
+
+A GitHub Actions workflow is configured at [`.github/workflows/test.yml`](.github/workflows/test.yml). On every `push` and `pull_request` to `main`:
+1. Launches ephemeral **PostgreSQL 16** and **Redis 7** service containers.
+2. Initializes schema tables and starts the Express gateway.
+3. Executes the complete Newman automated test suite and high-concurrency 101-request breach test.
+4. Uploads the generated `newman-html-test-report` HTML artifact to GitHub Actions.
+
+---
+
 ## 🐳 Running with Docker
 
 You can run the entire platform, including the Express API Gateway, React dashboard, PostgreSQL database, and Redis cache, inside isolated Docker containers:
@@ -103,4 +159,5 @@ You can run the entire platform, including the Express API Gateway, React dashbo
    ```bash
    docker-compose down
    ```
+
 

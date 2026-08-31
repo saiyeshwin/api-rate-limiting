@@ -1,0 +1,15 @@
+{
+  "name": "api-observability-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API Observability & Rate-Limiting Platform Monorepo",
+  "scripts": {
+    "start:server": "cd server && npm start",
+    "start:client": "cd client && npm run dev",
+    "test:server": "cd server && node test-platform.js",
+    "test:strategies": "cd server && node test-strategies.js",
+    "test:qa": "cd tests && npm test",
+    "test:e2e": "cd tests && npm test",
+    "test": "cd tests && npm test"
+  }
+}

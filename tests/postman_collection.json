@@ -1,0 +1,1194 @@
+{
+  "info": {
+    "_postman_id": "84a1e942-3c27-4e9c-8bd9-450689146cc7",
+    "name": "API Observability & Rate Limiting Test Suite",
+    "description": "Comprehensive Quality Engineering Automation Test Suite covering Authentication, API Registration & CRUD, Key Generation & Revocation, Rate Limiting Strategies (Sliding Window, Fixed Window, Token Bucket), Negative/Edge Cases, Platform Health, and Observability Metrics.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Platform Health Check",
+      "item": [
+        {
+          "name": "TC_HLTH_001: Platform System Health Status [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Platform reports healthy status', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData.status).to.eql('ok');",
+                  "    pm.expect(jsonData).to.have.property('service');",
+                  "    pm.expect(jsonData.service).to.eql('API Observability Platform');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Authentication & Security",
+      "item": [
+        {
+          "name": "TC_AUTH_001: Register New User [Functional]",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const randomId = Date.now();",
+                  "pm.environment.set('userEmail', `qe_user_${randomId}@example.com`);",
+                  "pm.environment.set('userName', `QE Engineer ${randomId}`);",
+                  "pm.environment.set('userPassword', 'SecurePass123!');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response contains valid JWT token and user credentials', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('token');",
+                  "    pm.expect(jsonData.token).to.be.a('string').and.have.lengthOf.at.least(20);",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData.email).to.eql(pm.environment.get('userEmail'));",
+                  "    ",
+                  "    // Save dynamic token and userId to environment",
+                  "    pm.environment.set('authToken', jsonData.token);",
+                  "    pm.environment.set('userId', jsonData.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{userName}}\",\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "TC_AUTH_002: User Login with Valid Credentials [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response returns refreshed JWT token', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('token');",
+                  "    pm.expect(jsonData.id).to.eql(pm.environment.get('userId'));",
+                  "    pm.environment.set('authToken', jsonData.token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "TC_AUTH_003: Get Current User Profile (/api/auth/me) [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User identity matches authenticated session', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.id).to.eql(pm.environment.get('userId'));",
+                  "    pm.expect(jsonData.email).to.eql(pm.environment.get('userEmail'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "TC_AUTH_004: User Registration - Missing Fields [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error message specifies missing credentials', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('error');",
+                  "    pm.expect(jsonData.error).to.include('Please provide name, email and password');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Incomplete User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "TC_AUTH_005: User Login - Invalid Password [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Rejects invalid credentials securely', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('Invalid email or password');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"IncorrectPassword999!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. API Endpoint Registration & Rate Limit Config",
+      "item": [
+        {
+          "name": "TC_API_001: Register API with Sliding Window [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('API details and sliding window limits are properly initialized', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData.name).to.eql('QE Target Endpoint (Sliding Window)');",
+                  "    pm.expect(jsonData.rate_limit).to.eql(3);",
+                  "    pm.expect(jsonData.rate_window).to.eql(10);",
+                  "    pm.expect(jsonData.rate_limit_strategy).to.eql('sliding_window');",
+                  "    ",
+                  "    // Save API ID for subsequent tests",
+                  "    pm.environment.set('apiId', jsonData.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"QE Target Endpoint (Sliding Window)\",\n  \"endpoint\": \"https://jsonplaceholder.typicode.com/todos/1\",\n  \"method\": \"GET\",\n  \"rate_limit\": 3,\n  \"rate_window\": 10,\n  \"rate_limit_strategy\": \"sliding_window\",\n  \"description\": \"Automated test endpoint\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apis",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis"]
+            }
+          }
+        },
+        {
+          "name": "TC_API_002: Register API with Fixed Window [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Rate limit strategy correctly configured as fixed_window', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.rate_limit_strategy).to.eql('fixed_window');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"QE Target Endpoint (Fixed Window)\",\n  \"endpoint\": \"https://jsonplaceholder.typicode.com/todos/2\",\n  \"method\": \"GET\",\n  \"rate_limit\": 10,\n  \"rate_window\": 30,\n  \"rate_limit_strategy\": \"fixed_window\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apis",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis"]
+            }
+          }
+        },
+        {
+          "name": "TC_API_003: Register API with Token Bucket [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Rate limit strategy correctly configured as token_bucket', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.rate_limit_strategy).to.eql('token_bucket');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"QE Target Endpoint (Token Bucket)\",\n  \"endpoint\": \"https://jsonplaceholder.typicode.com/todos/3\",\n  \"method\": \"GET\",\n  \"rate_limit\": 15,\n  \"rate_window\": 60,\n  \"rate_limit_strategy\": \"token_bucket\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apis",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis"]
+            }
+          }
+        },
+        {
+          "name": "TC_API_004: Update API Rate Limits (/api/apis/:id) [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Rate limits and details updated successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.rate_limit).to.eql(3);",
+                  "    pm.expect(jsonData.rate_window).to.eql(10);",
+                  "    pm.expect(jsonData.description).to.include('Updated description');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"QE Target Endpoint (Sliding Window)\",\n  \"endpoint\": \"https://jsonplaceholder.typicode.com/todos/1\",\n  \"method\": \"GET\",\n  \"rate_limit\": 3,\n  \"rate_window\": 10,\n  \"rate_limit_strategy\": \"sliding_window\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apis/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_API_005: Get Single API Details with Health History [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('API response contains health check arrays and stats schema', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.id).to.eql(pm.environment.get('apiId'));",
+                  "    pm.expect(jsonData).to.have.property('recentHealthChecks');",
+                  "    pm.expect(jsonData).to.have.property('stats');",
+                  "    pm.expect(jsonData.stats).to.have.property('totalRequests');",
+                  "    pm.expect(jsonData.stats).to.have.property('p95ResponseTime');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apis/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_API_006: List Registered APIs [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Returns list of APIs with health status', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "    pm.expect(jsonData.length).to.be.at.least(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apis",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis"]
+            }
+          }
+        },
+        {
+          "name": "TC_API_007: Register API - Malformed URL [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Validation rejects malformed URL format', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('valid endpoint URL');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Invalid URL API\",\n  \"endpoint\": \"not-a-valid-url-protocol\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apis",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis"]
+            }
+          }
+        },
+        {
+          "name": "TC_API_008: Register API - Missing Name [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Validation enforces mandatory name field', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('Please provide API name');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"endpoint\": \"https://jsonplaceholder.typicode.com/todos/1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apis",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis"]
+            }
+          }
+        },
+        {
+          "name": "TC_API_009: Access Protected API Route Without Token [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Blocks unauthenticated requests', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('Not authorized');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apis/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis", "{{apiId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. API Key Generation & Management",
+      "item": [
+        {
+          "name": "TC_KEY_001: Generate API Key [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Returns plain text key and key prefix on creation', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('plain_key');",
+                  "    pm.expect(jsonData.plain_key).to.match(/^ap_[a-f0-9]{48}$/);",
+                  "    pm.expect(jsonData.key_prefix).to.match(/^ap_[a-f0-9]{7}\\.\\.\\.$/);",
+                  "    ",
+                  "    // Save credentials to environment",
+                  "    pm.environment.set('apiKeyId', jsonData.id);",
+                  "    pm.environment.set('plainApiKey', jsonData.plain_key);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"api_id\": \"{{apiId}}\",\n  \"name\": \"QE Functional Test Key\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "keys"]
+            }
+          }
+        },
+        {
+          "name": "TC_KEY_002: List API Keys for Endpoint [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Lists keys and strictly omits plain secrets for security', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "    pm.expect(jsonData.length).to.be.at.least(1);",
+                  "    jsonData.forEach(k => {",
+                  "        pm.expect(k).to.not.have.property('plain_key');",
+                  "        pm.expect(k).to.not.have.property('key_hash');",
+                  "        pm.expect(k).to.have.property('key_prefix');",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/keys/api/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "keys", "api", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_KEY_003: Generate API Key - Missing API ID [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Enforces API ID specification', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('Please provide api_id');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Orphan Key\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "keys"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. API Gateway Proxy & Rate Limiting Enforcement",
+      "item": [
+        {
+          "name": "TC_GW_001: Gateway Call #1 [Functional - Quota Remaining 2]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Rate limiting headers are returned correctly', function () {",
+                  "    pm.expect(pm.response.headers.get('X-RateLimit-Limit')).to.eql('3');",
+                  "    pm.expect(pm.response.headers.get('X-RateLimit-Remaining')).to.eql('2');",
+                  "    pm.expect(pm.response.headers.get('X-RateLimit-Reset')).to.exist;",
+                  "    pm.expect(pm.response.headers.get('X-RateLimit-Strategy')).to.eql('sliding_window');",
+                  "});",
+                  "",
+                  "pm.test('Upstream payload is returned to client', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{plainApiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gw/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gw", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_GW_002: Gateway Call #2 [Functional - Quota Remaining 1]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Remaining quota decremented to 1', function () {",
+                  "    pm.expect(pm.response.headers.get('X-RateLimit-Remaining')).to.eql('1');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{plainApiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gw/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gw", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_GW_003: Gateway Call #3 [Functional - Quota Remaining 0]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Remaining quota reaches 0 boundary', function () {",
+                  "    pm.expect(pm.response.headers.get('X-RateLimit-Remaining')).to.eql('0');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{plainApiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gw/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gw", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_GW_004: Gateway Call #4 - Rate Limit Breach [Negative/Edge Rate Limiting]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 429 Too Many Requests', function () {",
+                  "    pm.response.to.have.status(429);",
+                  "});",
+                  "",
+                  "pm.test('Response includes Retry-After header and error body', function () {",
+                  "    pm.expect(pm.response.headers.get('Retry-After')).to.exist;",
+                  "    pm.expect(parseInt(pm.response.headers.get('Retry-After'))).to.be.at.least(1);",
+                  "    pm.expect(pm.response.headers.get('X-RateLimit-Remaining')).to.eql('0');",
+                  "    ",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.eql('Too Many Requests');",
+                  "    pm.expect(jsonData.message).to.include('API rate limit exceeded');",
+                  "    pm.expect(jsonData).to.have.property('retry_after_seconds');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{plainApiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gw/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gw", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_GW_005: Gateway Call - Missing X-API-Key Header [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Error indicates API key is missing', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('Missing X-API-Key header');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/gw/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gw", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_GW_006: Gateway Call - Invalid X-API-Key [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Error indicates API key is invalid', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('Invalid API key');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "ap_000000000000000000000000000000000000000000000000"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gw/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gw", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_GW_007: Revoke API Key (/api/keys/:id/revoke) [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Key revocation confirmed', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('API key revoked successfully');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/keys/{{apiKeyId}}/revoke",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "keys", "{{apiKeyId}}", "revoke"]
+            }
+          }
+        },
+        {
+          "name": "TC_GW_008: Gateway Call with Revoked Key [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Rejects revoked key requests', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('API key has been revoked');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{plainApiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gw/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gw", "{{apiId}}"]
+            }
+          }
+        },
+        {
+          "name": "TC_GW_009: Gateway Call to Non-Existent API UUID [Negative/Edge]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404 Not Found', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Error indicates target endpoint not found in registry', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.error).to.include('Gateway Routing Error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{plainApiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gw/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["gw", "00000000-0000-0000-0000-000000000000"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Observability & Analytics Verification",
+      "item": [
+        {
+          "name": "TC_OBS_001: Get Dashboard Summary & Latency Analytics [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Analytics and traffic violation logs are aggregated accurately', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('summary');",
+                  "    pm.expect(jsonData.summary.totalApis).to.be.at.least(1);",
+                  "    pm.expect(jsonData.summary.totalRequests).to.be.at.least(4);",
+                  "    pm.expect(jsonData.summary.violations).to.be.at.least(1);",
+                  "    pm.expect(jsonData.summary).to.have.property('p95LatencyMs');",
+                  "    pm.expect(jsonData).to.have.property('recentRequests');",
+                  "    pm.expect(jsonData.recentRequests.length).to.be.at.least(1);",
+                  "    ",
+                  "    // Validate presence of 429 violation record in logs",
+                  "    const hasViolation = jsonData.recentRequests.some(r => r.is_violation === true || r.status_code === 429);",
+                  "    pm.expect(hasViolation).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "summary"]
+            }
+          }
+        },
+        {
+          "name": "TC_OBS_002: Cleanup Test API Endpoint [Functional]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Cascades delete and removes API registration', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('API endpoint deleted successfully');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apis/{{apiId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apis", "{{apiId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
