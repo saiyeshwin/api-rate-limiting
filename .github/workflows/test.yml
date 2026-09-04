@@ -186,7 +186,7 @@ jobs:
 
           # 4. Execute Selenium Tests
           cd tests/ui
-          mvn clean test -Dheadless=true -DbaseUrl=http://127.0.0.1:3000
+          mvn test -Dheadless=true -DbaseUrl=http://127.0.0.1:3000
           TEST_EXIT_CODE=$?
 
           # 5. Clean up background processes
@@ -197,10 +197,30 @@ jobs:
       - name: Output Diagnostic Logs on Failure
         if: failure()
         run: |
+          echo "### ❌ UI Test Diagnostic Summary" >> $GITHUB_STEP_SUMMARY
+          echo "#### Server Log" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat server-ui.log >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "#### Client Log" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat client-ui.log >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "#### Surefire Test Reports" >> $GITHUB_STEP_SUMMARY
+          for f in tests/ui/target/surefire-reports/*.txt; do
+            if [ -f "$f" ]; then
+              echo "File: $f" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat "$f" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "=== $f ==="
+              cat "$f"
+            fi
+          done
           echo "=== SERVER LOG ==="
-          cat server-ui.log || true
+          cat server-ui.log 2>/dev/null || true
           echo "=== CLIENT LOG ==="
-          cat client-ui.log || true
+          cat client-ui.log 2>/dev/null || true
 
       - name: Upload TestNG HTML Report Artifact
         if: always()

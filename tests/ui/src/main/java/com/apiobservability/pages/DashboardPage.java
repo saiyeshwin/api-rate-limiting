@@ -25,21 +25,22 @@ public class DashboardPage extends BasePage {
         return this;
     }
 
-    public void waitForDashboard() {
+    public boolean waitForDashboard() {
         try {
             wait.until(ExpectedConditions.invisibilityOfElementLocated(loadingSpinner));
         } catch (Exception ignored) {
         }
-        waitForVisibility(dashboardHeader);
-    }
-
-    public boolean isDashboardLoaded() {
         try {
-            waitForDashboard();
-            return isElementDisplayed(dashboardHeader) && isElementDisplayed(navbarElement);
+            waitForVisibility(dashboardHeader);
+            return true;
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean isDashboardLoaded() {
+        waitForDashboard();
+        return isElementDisplayed(dashboardHeader) && isElementDisplayed(navbarElement);
     }
 
     public String getTotalApisCount() {

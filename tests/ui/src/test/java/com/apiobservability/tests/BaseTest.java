@@ -1,6 +1,5 @@
 package com.apiobservability.tests;
 
-import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -28,17 +27,13 @@ public abstract class BaseTest {
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--window-size=1920,1080");
+        options.addArguments("--start-maximized");
         options.addArguments("--remote-allow-origins=*");
         options.addArguments("--disable-extensions");
         options.addArguments("--disable-software-rasterizer");
         options.addArguments("--ignore-certificate-errors");
 
-        try {
-            WebDriverManager.chromedriver().setup();
-        } catch (Exception e) {
-            System.out.println("WebDriverManager setup notice (relying on built-in Selenium Manager): " + e.getMessage());
-        }
-
+        // Selenium 4 native driver management automatically resolves Chrome & matching ChromeDriver
         driver = new ChromeDriver(options);
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));

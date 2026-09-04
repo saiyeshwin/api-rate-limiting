@@ -18,12 +18,11 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <selenium.version>4.28.1</selenium.version>
         <testng.version>7.10.2</testng.version>
-        <webdrivermanager.version>5.9.3</webdrivermanager.version>
         <surefire.version>3.5.2</surefire.version>
     </properties>
 
     <dependencies>
-        <!-- Selenium WebDriver Java Bindings -->
+        <!-- Selenium WebDriver Java Bindings (with built-in Selenium Manager) -->
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
             <artifactId>selenium-java</artifactId>
@@ -36,13 +35,6 @@
             <artifactId>testng</artifactId>
             <version>${testng.version}</version>
             <scope>test</scope>
-        </dependency>
-
-        <!-- WebDriverManager for Automated Driver Binaries Management -->
-        <dependency>
-            <groupId>io.github.bonigarcia</groupId>
-            <artifactId>webdrivermanager</artifactId>
-            <version>${webdrivermanager.version}</version>
         </dependency>
     </dependencies>
 
