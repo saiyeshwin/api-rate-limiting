@@ -75,7 +75,7 @@ jobs:
           JWT_SECRET: ci_test_secret_jwt_key_987654321
         run: |
           cd server
-          nohup npm start > ../server-api.log 2>&1 &
+          node src/app.js > ../server-api.log 2>&1 &
           
       - name: Wait for Server to be Healthy
         run: |
@@ -159,7 +159,7 @@ jobs:
           cd server && npm ci
           cd ../client && npm ci
 
-      - name: Start Server & Client Services
+      - name: Start Platform & Execute Selenium UI Tests
         env:
           PORT: 5000
           DATABASE_URL: postgresql://postgres:root@localhost:5432/api_observability
@@ -167,19 +167,32 @@ jobs:
           USE_MOCK_REDIS: "false"
           JWT_SECRET: ci_test_secret_jwt_key_987654321
         run: |
-          cd server && nohup npm start > ../server-ui.log 2>&1 &
-          cd client && nohup npm run dev -- --host 0.0.0.0 --port 3000 > ../client-ui.log 2>&1 &
+          # 1. Start Server in background
+          cd server
+          node src/app.js > ../server-ui.log 2>&1 &
+          SERVER_PID=$!
+          cd ..
 
-      - name: Wait for Full Platform Readiness
-        run: |
+          # 2. Start Client in background
+          cd client
+          npx vite --host 0.0.0.0 --port 3000 > ../client-ui.log 2>&1 &
+          CLIENT_PID=$!
+          cd ..
+
+          # 3. Wait for Readiness
           timeout 30 bash -c 'until curl -s http://127.0.0.1:5000/health | grep -q "ok"; do sleep 1; done'
           timeout 30 bash -c 'until curl -s http://127.0.0.1:3000 | grep -q "<html"; do sleep 1; done'
           echo "Server & Client are UP and ready for Selenium UI testing!"
 
-      - name: Execute Selenium WebDriver UI Tests (Headless Chrome)
-        run: |
+          # 4. Execute Selenium Tests
           cd tests/ui
           mvn clean test -Dheadless=true -DbaseUrl=http://127.0.0.1:3000
+          TEST_EXIT_CODE=$?
+
+          # 5. Clean up background processes
+          kill $SERVER_PID $CLIENT_PID || true
+
+          exit $TEST_EXIT_CODE
 
       - name: Output Diagnostic Logs on Failure
         if: failure()

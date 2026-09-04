@@ -2,6 +2,7 @@ package com.apiobservability.pages;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
 
 public class SignupPage extends BasePage {
 
@@ -28,6 +29,10 @@ public class SignupPage extends BasePage {
         type(emailInput, email);
         type(passwordInput, password);
         click(createAccountButton);
+        try {
+            wait.until(ExpectedConditions.not(ExpectedConditions.urlContains("/signup")));
+        } catch (Exception ignored) {
+        }
     }
 
     public String getErrorMessage() {

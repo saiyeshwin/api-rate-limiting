@@ -2,6 +2,7 @@ package com.apiobservability.pages;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
 
 public class LoginPage extends BasePage {
 
@@ -26,6 +27,13 @@ public class LoginPage extends BasePage {
         type(emailInput, email);
         type(passwordInput, password);
         click(signInButton);
+        try {
+            wait.until(ExpectedConditions.or(
+                ExpectedConditions.not(ExpectedConditions.urlContains("/login")),
+                ExpectedConditions.visibilityOfElementLocated(errorMessage)
+            ));
+        } catch (Exception ignored) {
+        }
     }
 
     public String getErrorMessage() {

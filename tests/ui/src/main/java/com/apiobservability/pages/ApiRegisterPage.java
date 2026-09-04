@@ -2,6 +2,7 @@ package com.apiobservability.pages;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
 
 public class ApiRegisterPage extends BasePage {
@@ -24,6 +25,10 @@ public class ApiRegisterPage extends BasePage {
         }
         type(endpointInput, endpoint);
         click(submitButton);
+        try {
+            wait.until(ExpectedConditions.not(ExpectedConditions.urlContains("/apis/register")));
+        } catch (Exception ignored) {
+        }
     }
 
     public String getErrorMessage() {

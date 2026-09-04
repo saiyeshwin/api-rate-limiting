@@ -20,6 +20,8 @@ public class ApiRegistrationUiTest extends BaseTest {
 
         // 2. Navigate to Register API form from Dashboard
         DashboardPage dashboardPage = new DashboardPage(driver);
+        Assert.assertTrue(dashboardPage.isDashboardLoaded(), "Dashboard was not loaded after registration.");
+        
         ApiRegisterPage registerPage = dashboardPage.clickRegisterApi();
 
         // 3. Fill and submit API configuration

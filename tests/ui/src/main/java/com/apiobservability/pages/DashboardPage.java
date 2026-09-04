@@ -2,6 +2,7 @@ package com.apiobservability.pages;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
 
 public class DashboardPage extends BasePage {
 
@@ -12,6 +13,7 @@ public class DashboardPage extends BasePage {
     private final By violationsCard = By.xpath("//p[contains(text(), 'Violations')]");
     private final By registerApiButton = By.xpath("//a[contains(@href, '/apis/register')] | //a[contains(., 'Register API')]");
     private final By navbarElement = By.cssSelector("nav");
+    private final By loadingSpinner = By.xpath("//*[contains(text(), 'Loading observability dashboard')]");
 
     public DashboardPage(WebDriver driver) {
         super(driver);
@@ -19,12 +21,25 @@ public class DashboardPage extends BasePage {
 
     public DashboardPage open(String baseUrl) {
         driver.get(baseUrl + "/");
-        waitForVisibility(dashboardHeader);
+        waitForDashboard();
         return this;
     }
 
+    public void waitForDashboard() {
+        try {
+            wait.until(ExpectedConditions.invisibilityOfElementLocated(loadingSpinner));
+        } catch (Exception ignored) {
+        }
+        waitForVisibility(dashboardHeader);
+    }
+
     public boolean isDashboardLoaded() {
-        return isElementDisplayed(dashboardHeader) && isElementDisplayed(navbarElement);
+        try {
+            waitForDashboard();
+            return isElementDisplayed(dashboardHeader) && isElementDisplayed(navbarElement);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public String getTotalApisCount() {
@@ -32,6 +47,7 @@ public class DashboardPage extends BasePage {
     }
 
     public boolean isSummaryCardsDisplayed() {
+        waitForDashboard();
         return isElementDisplayed(totalApisCard) &&
                isElementDisplayed(healthyApisCard) &&
                isElementDisplayed(gatewayCallsCard) &&
@@ -39,11 +55,13 @@ public class DashboardPage extends BasePage {
     }
 
     public ApiRegisterPage clickRegisterApi() {
+        waitForDashboard();
         click(registerApiButton);
         return new ApiRegisterPage(driver);
     }
 
     public boolean isApiPresentInList(String apiName) {
+        waitForDashboard();
         By apiNameLocator = By.xpath("//*[contains(text(), '" + apiName + "')]");
         return isElementDisplayed(apiNameLocator);
     }
