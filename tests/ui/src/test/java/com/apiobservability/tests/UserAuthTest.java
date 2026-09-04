@@ -3,6 +3,7 @@ package com.apiobservability.tests;
 import com.apiobservability.pages.DashboardPage;
 import com.apiobservability.pages.LoginPage;
 import com.apiobservability.pages.SignupPage;
+import org.openqa.selenium.JavascriptExecutor;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -30,13 +31,19 @@ public class UserAuthTest extends BaseTest {
         String password = "Password123!";
 
         // 1. Create account first
-        new SignupPage(driver).open(baseUrl).register(name, email, password);
+        SignupPage signupPage = new SignupPage(driver).open(baseUrl);
+        signupPage.register(name, email, password);
 
-        // 2. Open login page and sign in
+        DashboardPage dashboardPage = new DashboardPage(driver);
+        Assert.assertTrue(dashboardPage.isDashboardLoaded(), "Dashboard failed to load during user preparation.");
+
+        // 2. Clear browser session and storage
+        ((JavascriptExecutor) driver).executeScript("localStorage.clear();");
+
+        // 3. Open login page and sign in
         LoginPage loginPage = new LoginPage(driver).open(baseUrl);
         loginPage.login(email, password);
 
-        DashboardPage dashboardPage = new DashboardPage(driver);
         Assert.assertTrue(dashboardPage.isDashboardLoaded(), "User was not redirected to the Dashboard after valid login.");
     }
 

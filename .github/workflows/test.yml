@@ -75,16 +75,16 @@ jobs:
           JWT_SECRET: ci_test_secret_jwt_key_987654321
         run: |
           cd server
-          npm start &
+          nohup npm start > ../server-api.log 2>&1 &
           
       - name: Wait for Server to be Healthy
         run: |
-          timeout 30 bash -c 'until curl -s http://localhost:5000/health | grep -q "ok"; do sleep 1; done'
+          timeout 30 bash -c 'until curl -s http://127.0.0.1:5000/health | grep -q "ok"; do sleep 1; done'
           echo "Server is UP and ready for API testing!"
 
       - name: Execute Automated QA, SQL DB & Rate Limit Test Suite
         env:
-          BASE_URL: http://localhost:5000
+          BASE_URL: http://127.0.0.1:5000
           DATABASE_URL: postgresql://postgres:root@localhost:5432/api_observability
         run: |
           cd tests
@@ -159,7 +159,7 @@ jobs:
           cd server && npm ci
           cd ../client && npm ci
 
-      - name: Start Server Application (Port 5000)
+      - name: Start Server & Client Services
         env:
           PORT: 5000
           DATABASE_URL: postgresql://postgres:root@localhost:5432/api_observability
@@ -167,24 +167,27 @@ jobs:
           USE_MOCK_REDIS: "false"
           JWT_SECRET: ci_test_secret_jwt_key_987654321
         run: |
-          cd server
-          npm start &
-
-      - name: Start Client Application (Port 3000)
-        run: |
-          cd client
-          npm run dev &
+          cd server && nohup npm start > ../server-ui.log 2>&1 &
+          cd client && nohup npm run dev -- --host 0.0.0.0 --port 3000 > ../client-ui.log 2>&1 &
 
       - name: Wait for Full Platform Readiness
         run: |
-          timeout 30 bash -c 'until curl -s http://localhost:5000/health | grep -q "ok"; do sleep 1; done'
-          timeout 30 bash -c 'until curl -s http://localhost:3000 | grep -q "<html"; do sleep 1; done'
+          timeout 30 bash -c 'until curl -s http://127.0.0.1:5000/health | grep -q "ok"; do sleep 1; done'
+          timeout 30 bash -c 'until curl -s http://127.0.0.1:3000 | grep -q "<html"; do sleep 1; done'
           echo "Server & Client are UP and ready for Selenium UI testing!"
 
       - name: Execute Selenium WebDriver UI Tests (Headless Chrome)
         run: |
           cd tests/ui
-          mvn clean test -Dheadless=true -DbaseUrl=http://localhost:3000
+          mvn clean test -Dheadless=true -DbaseUrl=http://127.0.0.1:3000
+
+      - name: Output Diagnostic Logs on Failure
+        if: failure()
+        run: |
+          echo "=== SERVER LOG ==="
+          cat server-ui.log || true
+          echo "=== CLIENT LOG ==="
+          cat client-ui.log || true
 
       - name: Upload TestNG HTML Report Artifact
         if: always()

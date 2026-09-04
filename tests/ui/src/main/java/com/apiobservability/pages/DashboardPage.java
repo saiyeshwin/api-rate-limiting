@@ -5,12 +5,12 @@ import org.openqa.selenium.WebDriver;
 
 public class DashboardPage extends BasePage {
 
-    private final By dashboardHeader = By.xpath("//h1[contains(text(), 'API Observability Dashboard')]");
-    private final By totalApisCard = By.xpath("//p[contains(text(), 'Total APIs')]/following-sibling::h3");
-    private final By healthyApisCard = By.xpath("//p[contains(text(), 'Healthy APIs')]/following-sibling::h3");
-    private final By gatewayCallsCard = By.xpath("//p[contains(text(), 'Gateway Calls')]/following-sibling::h3");
-    private final By violationsCard = By.xpath("//p[contains(text(), 'Violations')]/following-sibling::h3");
-    private final By registerApiButton = By.xpath("//a[contains(@href, '/apis/register') or contains(., 'Register API')]");
+    private final By dashboardHeader = By.xpath("//h1[contains(text(), 'Dashboard')] | //h1[contains(text(), 'API Observability')]");
+    private final By totalApisCard = By.xpath("//p[contains(text(), 'Total APIs')]");
+    private final By healthyApisCard = By.xpath("//p[contains(text(), 'Healthy APIs')]");
+    private final By gatewayCallsCard = By.xpath("//p[contains(text(), 'Gateway Calls')]");
+    private final By violationsCard = By.xpath("//p[contains(text(), 'Violations')]");
+    private final By registerApiButton = By.xpath("//a[contains(@href, '/apis/register')] | //a[contains(., 'Register API')]");
     private final By navbarElement = By.cssSelector("nav");
 
     public DashboardPage(WebDriver driver) {

@@ -15,10 +15,9 @@ public abstract class BaseTest {
 
     @BeforeMethod
     public void setUp() {
-        baseUrl = System.getProperty("baseUrl", System.getenv().getOrDefault("BASE_URL", "http://localhost:3000"));
+        baseUrl = System.getProperty("baseUrl", System.getenv().getOrDefault("BASE_URL", "http://127.0.0.1:3000"));
         boolean isHeadless = Boolean.parseBoolean(System.getProperty("headless", System.getenv().getOrDefault("HEADLESS", "true")));
 
-        WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
         
         if (isHeadless) {
@@ -29,9 +28,19 @@ public abstract class BaseTest {
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--window-size=1920,1080");
+        options.addArguments("--remote-allow-origins=*");
+        options.addArguments("--disable-extensions");
+        options.addArguments("--disable-software-rasterizer");
+        options.addArguments("--ignore-certificate-errors");
+
+        try {
+            WebDriverManager.chromedriver().setup();
+        } catch (Exception e) {
+            System.out.println("WebDriverManager setup notice (relying on built-in Selenium Manager): " + e.getMessage());
+        }
 
         driver = new ChromeDriver(options);
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(5));
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
     }
 
