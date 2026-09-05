@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const { protect } = require('./middleware/authMiddleware');
@@ -47,6 +49,18 @@ app.all('/gw/:apiId/*', handleGatewayRequest);
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'API Observability Platform' });
 });
+
+// Serve Client Static Build if present (Unified Single-Origin)
+const clientDist = path.join(__dirname, '../../client/dist');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/gw') || req.path.startsWith('/health')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 // 404 Route handler
 app.use((req, res, next) => {

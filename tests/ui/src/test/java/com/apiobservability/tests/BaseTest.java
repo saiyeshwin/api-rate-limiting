@@ -16,7 +16,7 @@ public abstract class BaseTest {
 
     @BeforeMethod
     public void setUp() {
-        baseUrl = System.getProperty("baseUrl", System.getenv().getOrDefault("BASE_URL", "http://127.0.0.1:3000"));
+        baseUrl = System.getProperty("baseUrl", System.getenv().getOrDefault("BASE_URL", "http://127.0.0.1:5000"));
         boolean isHeadless = Boolean.parseBoolean(System.getProperty("headless", System.getenv().getOrDefault("HEADLESS", "true")));
 
         ChromeOptions options = new ChromeOptions();

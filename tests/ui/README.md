@@ -76,8 +76,9 @@ mvn clean test
 # Run in Visible Chrome browser window
 mvn clean test -Dheadless=false
 
-# Run against custom base URL
+# Run against custom base URL (e.g., Vite dev server on 3000 or unified server on 5000)
 mvn clean test -DbaseUrl=http://localhost:3000
+mvn clean test -DbaseUrl=http://localhost:5000
 ```
 
 ---

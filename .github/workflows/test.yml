@@ -154,10 +154,10 @@ jobs:
         run: |
           PGPASSWORD=root psql -h localhost -U postgres -d api_observability -f server/src/db/schema.sql
 
-      - name: Install Server & Client Dependencies
+      - name: Install Server & Client Dependencies and Build Frontend
         run: |
-          cd server && npm ci
-          cd ../client && npm ci
+          cd client && npm ci && npm run build
+          cd ../server && npm ci
 
       - name: Start Platform & Execute Selenium UI Tests
         env:
@@ -167,26 +167,20 @@ jobs:
           USE_MOCK_REDIS: "false"
           JWT_SECRET: ci_test_secret_jwt_key_987654321
         run: |
-          # 1. Start Server in background
+          # 1. Start Server in background (serves both API and pre-built React frontend on port 5000)
           cd server
           node src/app.js > ../server-ui.log 2>&1 &
           SERVER_PID=$!
           cd ..
 
-          # 2. Start Client in background
-          cd client
-          npx vite --host 0.0.0.0 --port 3000 > ../client-ui.log 2>&1 &
-          CLIENT_PID=$!
-          cd ..
-
-          # 3. Wait for Readiness
+          # 2. Wait for Readiness (both API health and Frontend HTML on port 5000)
           timeout 30 bash -c 'until curl -s http://127.0.0.1:5000/health | grep -q "ok"; do sleep 1; done'
-          timeout 30 bash -c 'until curl -s http://127.0.0.1:3000 | grep -q "<html"; do sleep 1; done'
-          echo "Server & Client are UP and ready for Selenium UI testing!"
+          timeout 30 bash -c 'until curl -s http://127.0.0.1:5000/login | grep -q "<html"; do sleep 1; done'
+          echo "Server & Frontend are UP on port 5000 and ready for Selenium UI testing!"
 
-          # 4. Execute Selenium Tests under xvfb
+          # 3. Execute Selenium Tests under xvfb
           cd tests/ui
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" mvn test -Dheadless=true -DbaseUrl=http://127.0.0.1:3000 || {
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" mvn test -Dheadless=true -DbaseUrl=http://127.0.0.1:5000 || {
             echo "❌ Tests failed, dumping diagnostic logs..."
             for f in target/surefire-reports/*.txt; do
               if [ -f "$f" ]; then
@@ -194,15 +188,23 @@ jobs:
                 cat "$f"
               fi
             done
+            for f in target/surefire-reports/junitreports/*.xml; do
+              if [ -f "$f" ]; then
+                echo "=== $f ==="
+                cat "$f"
+              fi
+            done
+            if [ -f target/surefire-reports/testng-results.xml ]; then
+              echo "=== testng-results.xml ==="
+              cat target/surefire-reports/testng-results.xml
+            fi
             echo "=== SERVER LOG ==="
             cat ../../server-ui.log 2>/dev/null || true
-            echo "=== CLIENT LOG ==="
-            cat ../../client-ui.log 2>/dev/null || true
             exit 1
           }
 
-          # 5. Clean up background processes
-          kill $SERVER_PID $CLIENT_PID || true
+          # 4. Clean up background process
+          kill $SERVER_PID || true
 
       - name: Upload TestNG HTML Report Artifact
         if: always()
