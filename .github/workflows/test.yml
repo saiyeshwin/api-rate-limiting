@@ -178,9 +178,9 @@ jobs:
           timeout 30 bash -c 'until curl -s http://127.0.0.1:5000/login | grep -q "<html"; do sleep 1; done'
           echo "Server & Frontend are UP on port 5000 and ready for Selenium UI testing!"
 
-          # 3. Execute Selenium Tests under xvfb
+          # 3. Execute Selenium Headless Tests
           cd tests/ui
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" mvn test -Dheadless=true -DbaseUrl=http://127.0.0.1:5000 || {
+          mvn test -Dheadless=true -DbaseUrl=http://127.0.0.1:5000 || {
             echo "❌ Tests failed, dumping diagnostic logs..."
             for f in target/surefire-reports/*.txt; do
               if [ -f "$f" ]; then

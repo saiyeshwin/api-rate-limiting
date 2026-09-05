@@ -6,8 +6,6 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
-import java.io.File;
-import java.nio.file.Files;
 import java.time.Duration;
 
 public abstract class BaseTest {
@@ -36,14 +34,6 @@ public abstract class BaseTest {
         options.addArguments("--ignore-certificate-errors");
         options.addArguments("--no-first-run");
         options.addArguments("--no-default-browser-check");
-
-        // Isolate browser profile per test run to prevent lock contention on Linux
-        try {
-            File tempProfile = Files.createTempDirectory("chrome-profile-").toFile();
-            tempProfile.deleteOnExit();
-            options.addArguments("--user-data-dir=" + tempProfile.getAbsolutePath());
-        } catch (Exception ignored) {
-        }
 
         // Selenium 4 native driver management automatically resolves Chrome & matching ChromeDriver
         driver = new ChromeDriver(options);
