@@ -25,9 +25,9 @@ import static org.awaitility.Awaitility.await;
 @EmbeddedKafka(
         partitions = 1,
         topics = {
-                "${app.kafka.topics.requests-raw:test.api.requests.raw}",
-                "${app.kafka.topics.health-checks:test.api.health.checks}",
-                "${app.kafka.topics.requests-dlq:test.api.requests.dlq}"
+                "test.api.requests.raw",
+                "test.api.health.checks",
+                "test.api.requests.dlq"
         }
 )
 @DirtiesContext
