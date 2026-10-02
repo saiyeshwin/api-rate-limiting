@@ -53,8 +53,42 @@ CREATE TABLE IF NOT EXISTS requests_log (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create processed_events table for Kafka event-level idempotency
+CREATE TABLE IF NOT EXISTS processed_events (
+    event_id VARCHAR(255) PRIMARY KEY,
+    topic VARCHAR(100) NOT NULL,
+    consumer_group VARCHAR(100) NOT NULL DEFAULT 'analytics-service-group',
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create dlq_messages table for Dead Letter Queue inspection and replay
+CREATE TABLE IF NOT EXISTS dlq_messages (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    original_topic VARCHAR(100) NOT NULL,
+    payload TEXT NOT NULL,
+    error_message TEXT,
+    stack_trace TEXT,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(50) NOT NULL DEFAULT 'FAILED', -- FAILED, REPROCESSED, DISCARDED
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reprocessed_at TIMESTAMP DEFAULT NULL
+);
+
+-- Create idempotency_keys table for HTTP-level API Gateway idempotency
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+    key VARCHAR(255) PRIMARY KEY,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    request_path VARCHAR(255) NOT NULL,
+    response_status INTEGER NOT NULL,
+    response_body TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_apis_user_id ON apis(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
 CREATE INDEX IF NOT EXISTS idx_health_checks_api_id ON health_checks(api_id, checked_at DESC);
 CREATE INDEX IF NOT EXISTS idx_requests_log_api_id ON requests_log(api_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dlq_status ON dlq_messages(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_idempotency_expires ON idempotency_keys(expires_at);

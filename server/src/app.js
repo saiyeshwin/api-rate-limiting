@@ -5,12 +5,14 @@ const fs = require('fs');
 require('dotenv').config();
 
 const { protect } = require('./middleware/authMiddleware');
+const { idempotencyMiddleware } = require('./middleware/idempotencyMiddleware');
 const { registerUser, loginUser, getMe } = require('./controllers/authController');
 const { createApi, getApis, getApiById, updateApi, deleteApi } = require('./controllers/apiController');
 const { generateKey, getKeysByApi, revokeKey } = require('./controllers/keyController');
 const { getDashboardSummary } = require('./controllers/dashboardController');
 const { handleGatewayRequest } = require('./services/gateway');
 const { startWorker, stopWorker } = require('./services/worker');
+const { initKafka, disconnectKafka } = require('./config/kafka');
 
 const app = express();
 
@@ -25,29 +27,34 @@ app.post('/api/auth/login', loginUser);
 // Protected Auth Routes
 app.get('/api/auth/me', protect, getMe);
 
-// Protected APIs CRUD Routes
-app.post('/api/apis', protect, createApi);
+// Protected APIs CRUD Routes (with Idempotency Middleware on mutations)
+app.post('/api/apis', protect, idempotencyMiddleware(), createApi);
 app.get('/api/apis', protect, getApis);
 app.get('/api/apis/:id', protect, getApiById);
-app.put('/api/apis/:id', protect, updateApi);
+app.put('/api/apis/:id', protect, idempotencyMiddleware(), updateApi);
 app.delete('/api/apis/:id', protect, deleteApi);
 
-// Protected API Keys Routes
-app.post('/api/keys', protect, generateKey);
+// Protected API Keys Routes (with Idempotency Middleware)
+app.post('/api/keys', protect, idempotencyMiddleware(), generateKey);
 app.get('/api/keys/api/:apiId', protect, getKeysByApi);
-app.post('/api/keys/:id/revoke', protect, revokeKey);
+app.post('/api/keys/:id/revoke', protect, idempotencyMiddleware(), revokeKey);
 
 // Protected Dashboard Summary Route
 app.get('/api/dashboard/summary', protect, getDashboardSummary);
 
 // API Gateway Proxy Route (Supports GET, POST, PUT, DELETE, PATCH, etc.)
-app.all('/gw/:apiId', handleGatewayRequest);
+app.all('/gw/:apiId', idempotencyMiddleware(), handleGatewayRequest);
 // Handle wildcards or optional subpaths if needed (e.g. /gw/:apiId/*)
-app.all('/gw/:apiId/*', handleGatewayRequest);
+app.all('/gw/:apiId/*', idempotencyMiddleware(), handleGatewayRequest);
 
 // Simple Health Status for the platform itself
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'API Observability Platform' });
+  res.json({ 
+    status: 'ok', 
+    service: 'API Observability & Microservices Gateway',
+    architecture: 'Microservices with Kafka Event Streaming',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Serve Client Static Build if present (Unified Single-Origin)
@@ -75,28 +82,26 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
+// Initialize Kafka producer on boot
+initKafka().catch(err => console.error('[Kafka] Initialization error:', err.message));
+
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`API Gateway Server running on port ${PORT}`);
   
   // Start background health checking worker (every 60 seconds)
   startWorker(60000);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+const handleShutdown = async (signal) => {
+  console.log(`${signal} signal received: closing HTTP server and Kafka producer`);
   stopWorker();
+  await disconnectKafka();
   server.close(() => {
-    console.log('HTTP server closed');
+    console.log('HTTP server closed cleanly');
     process.exit(0);
   });
-});
+};
 
-process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
-  stopWorker();
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
-  });
-});
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));

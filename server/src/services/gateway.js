@@ -2,6 +2,8 @@ const axios = require('axios');
 const crypto = require('crypto');
 const db = require('../config/db');
 const { checkRateLimit } = require('../config/redis');
+const { publishEvent, TOPICS } = require('../config/kafka');
+const { v4: uuidv4 } = require('uuid');
 
 // @desc    API Gateway Proxy Route
 // @route   ALL /gw/:apiId
@@ -27,7 +29,7 @@ const handleGatewayRequest = async (req, res) => {
 
     // 2. Validate API Key
     const keyResult = await db.query(
-      'SELECT id, revoked_at FROM api_keys WHERE key_hash = $1 AND api_id = $2',
+      'SELECT id, key_prefix, revoked_at FROM api_keys WHERE key_hash = $1 AND api_id = $2',
       [keyHash, apiId]
     );
 
@@ -50,14 +52,38 @@ const handleGatewayRequest = async (req, res) => {
     res.setHeader('X-RateLimit-Reset', rateCheck.reset);
     res.setHeader('X-RateLimit-Strategy', api.rate_limit_strategy);
 
+    const eventId = uuidv4();
+
     if (!rateCheck.allowed) {
       res.setHeader('Retry-After', rateCheck.reset);
       
-      // Log Rate Limit Violation
+      // Asynchronously publish Rate Limit Violation Event to Kafka
+      publishEvent(TOPICS.RATE_LIMIT_VIOLATIONS, {
+        eventId,
+        apiId,
+        keyPrefix: apiKeyRecord.key_prefix,
+        limit: api.rate_limit,
+        windowSec: api.rate_window,
+        strategy: api.rate_limit_strategy,
+        timestamp: new Date().toISOString()
+      }, apiId).catch(err => console.error('[Kafka] Violation publish error:', err.message));
+
+      // Asynchronously publish Raw Request Event (429) to Kafka
+      publishEvent(TOPICS.REQUESTS_RAW, {
+        eventId,
+        apiId,
+        statusCode: 429,
+        responseTimeMs: 0,
+        isViolation: true,
+        method: req.method,
+        timestamp: new Date().toISOString()
+      }, apiId).catch(err => console.error('[Kafka] Request raw publish error:', err.message));
+
+      // Direct DB fallback log for compatibility
       await db.query(
         'INSERT INTO requests_log (api_id, status_code, response_time, is_violation) VALUES ($1, $2, $3, $4)',
         [apiId, 429, 0, true]
-      );
+      ).catch(err => console.error('[DB] Log error:', err.message));
 
       return res.status(429).json({
         error: 'Too Many Requests',
@@ -96,10 +122,22 @@ const handleGatewayRequest = async (req, res) => {
       const statusCode = proxyError.response ? proxyError.response.status : 504; // Gateway Timeout
       const errorMessage = proxyError.message || 'Unknown network error';
 
+      // Publish failure event to Kafka
+      publishEvent(TOPICS.REQUESTS_RAW, {
+        eventId,
+        apiId,
+        statusCode,
+        responseTimeMs: latency,
+        isViolation: false,
+        method: req.method,
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      }, apiId).catch(err => console.error('[Kafka] Request publish error:', err.message));
+
       await db.query(
         'INSERT INTO requests_log (api_id, status_code, response_time, is_violation) VALUES ($1, $2, $3, $4)',
         [apiId, statusCode, latency, false]
-      );
+      ).catch(err => console.error('[DB] Log error:', err.message));
 
       console.error(`Gateway proxy error to ${api.endpoint}:`, errorMessage);
       return res.status(statusCode).json({
@@ -110,14 +148,24 @@ const handleGatewayRequest = async (req, res) => {
 
     const latency = Date.now() - startTime;
 
-    // 5. Log Request Details
+    // 5. Asynchronously Emit Event to Kafka
+    publishEvent(TOPICS.REQUESTS_RAW, {
+      eventId,
+      apiId,
+      statusCode: response.status,
+      responseTimeMs: latency,
+      isViolation: false,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    }, apiId).catch(err => console.error('[Kafka] Request raw publish error:', err.message));
+
+    // Direct DB log for instant compatibility
     await db.query(
       'INSERT INTO requests_log (api_id, status_code, response_time, is_violation) VALUES ($1, $2, $3, $4)',
       [apiId, response.status, latency, false]
-    );
+    ).catch(err => console.error('[DB] Log error:', err.message));
 
     // 6. Forward Upstream Response to Client
-    // Set headers from upstream response if safe (excluding upstream rate-limiting headers)
     Object.keys(response.headers).forEach(header => {
       const lower = header.toLowerCase();
       if (

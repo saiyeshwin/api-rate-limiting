@@ -9,36 +9,104 @@ services:
       POSTGRES_PASSWORD: postgres_docker_pass
       POSTGRES_DB: api_observability
     ports:
-      - "5434:5432" # Exposed on port 5434 on the host to prevent local service conflicts
+      - "5434:5432" # Host port 5434 to avoid host conflicts
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Mount the schema file to initialize the DB automatically on first run
       - ./server/src/db/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: api-observability-redis
     ports:
-      - "6380:6379" # Exposed on port 6380 on the host to prevent local service conflicts
+      - "6380:6379" # Host port 6380
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
-  server:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: api-observability-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      # Apache Kafka KRaft Single Node Configuration
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    restart: unless-stopped
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: api-observability-kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      - kafka
+    restart: unless-stopped
+
+  api-gateway:
     build: ./server
-    container_name: api-observability-server
+    container_name: api-observability-gateway
     environment:
       PORT: 5000
       DATABASE_URL: postgresql://postgres:postgres_docker_pass@db:5432/api_observability
       REDIS_URL: redis://redis:6379
-      USE_MOCK_REDIS: "false" # Uses the actual Redis container for sliding window checks
+      USE_MOCK_REDIS: "false"
+      KAFKA_BROKERS: kafka:9092
+      USE_MOCK_KAFKA: "false"
       JWT_SECRET: super_secret_jwt_token_for_api_observability_platform_docker_98765
     ports:
       - "5000:5000"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    restart: unless-stopped
+
+  analytics-service:
+    build: ./services/analytics-service
+    container_name: api-observability-analytics
+    environment:
+      SERVER_PORT: 8081
+      DATABASE_URL: jdbc:postgresql://db:5432/api_observability
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres_docker_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8081:8081"
+    depends_on:
+      db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     restart: unless-stopped
 
   client:
@@ -47,9 +115,11 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - server
+      - api-gateway
+      - analytics-service
     restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
+  kafka_data:

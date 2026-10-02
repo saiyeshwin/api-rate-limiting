@@ -72,6 +72,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:root@localhost:5432/api_observability
           REDIS_URL: redis://localhost:6379
           USE_MOCK_REDIS: "false"
+          USE_MOCK_KAFKA: "true"
           JWT_SECRET: ci_test_secret_jwt_key_987654321
         run: |
           cd server
@@ -99,7 +100,38 @@ jobs:
           retention-days: 14
 
   # -------------------------------------------------------------
-  # Job 2: Selenium WebDriver UI Automation Tests (Java + TestNG)
+  # Job 2: Spring Boot Microservice Tests (JUnit 5 + Mockito + EmbeddedKafka)
+  # -------------------------------------------------------------
+  analytics-microservice-tests:
+    name: Analytics Microservice Unit & Integration Tests (JUnit 5 + Mockito + Kafka)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Run Spring Boot JUnit 5, Mockito & EmbeddedKafka Tests
+        run: |
+          cd services/analytics-service
+          mvn clean test --batch-mode
+
+      - name: Upload Surefire Test Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analytics-surefire-reports
+          path: services/analytics-service/target/surefire-reports/
+          retention-days: 14
+
+  # -------------------------------------------------------------
+  # Job 3: Selenium WebDriver UI Automation Tests (Java + TestNG)
   # -------------------------------------------------------------
   ui-selenium-tests:
     name: End-to-End UI Automation Suite (Selenium + TestNG)
@@ -165,6 +197,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:root@localhost:5432/api_observability
           REDIS_URL: redis://localhost:6379
           USE_MOCK_REDIS: "false"
+          USE_MOCK_KAFKA: "true"
           JWT_SECRET: ci_test_secret_jwt_key_987654321
         run: |
           # 1. Start Server in background (serves both API and pre-built React frontend on port 5000)
