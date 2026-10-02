@@ -51,7 +51,7 @@ app.all('/gw/:apiId/*', idempotencyMiddleware(), handleGatewayRequest);
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
-    service: 'API Observability & Microservices Gateway',
+    service: 'API Observability Platform',
     architecture: 'Microservices with Kafka Event Streaming',
     timestamp: new Date().toISOString()
   });
