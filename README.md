@@ -91,7 +91,7 @@ flowchart TD
    - `api.health.checks`: Emitted during background availability probes.
 3. **Dual-Layer Idempotency & Deduplication**:
    - **HTTP-level Idempotency**: Intercepts mutating requests using `Idempotency-Key` headers with Redis & PostgreSQL response caching (`idempotency_keys`).
-   - **Consumer-level Event Deduplication**: Implements idempotent event processing with persistent deduplication via atomic database locking on `processed_events(event_id)` to eliminate duplicate processing effects.
+   - **Consumer-level Event Deduplication**: Consumer-level idempotent processing with persistent event deduplication via atomic database locking on `processed_events(event_id)` to prevent duplicate processing effects.
 4. **Resilience, Retries & Dead Letter Queue (DLQ)**:
    - Configures non-blocking retries with exponential backoff (`delay = 1000ms`, `multiplier = 2.0`, `maxAttempts = 3`).
    - Poison or unprocessable messages automatically divert to Dead Letter Topics (`api.requests.dlq`) with full diagnostic headers (`x-original-topic`, `x-exception-message`, `x-exception-stacktrace`).
