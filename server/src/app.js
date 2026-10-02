@@ -13,8 +13,12 @@ const { getDashboardSummary } = require('./controllers/dashboardController');
 const { handleGatewayRequest } = require('./services/gateway');
 const { startWorker, stopWorker } = require('./services/worker');
 const { initKafka, disconnectKafka } = require('./config/kafka');
+const { register, metricsMiddleware } = require('./config/metrics');
 
 const app = express();
+
+// Prometheus Metrics Middleware
+app.use(metricsMiddleware);
 
 // Standard Middlewares
 app.use(cors());
@@ -47,6 +51,16 @@ app.all('/gw/:apiId', idempotencyMiddleware(), handleGatewayRequest);
 // Handle wildcards or optional subpaths if needed (e.g. /gw/:apiId/*)
 app.all('/gw/:apiId/*', idempotencyMiddleware(), handleGatewayRequest);
 
+// Prometheus Scrape Endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (ex) {
+    res.status(500).end(ex.message);
+  }
+});
+
 // Simple Health Status for the platform itself
 app.get('/health', (req, res) => {
   res.json({ 
@@ -62,7 +76,7 @@ const clientDist = path.join(__dirname, '../../client/dist');
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/gw') || req.path.startsWith('/health')) {
+    if (req.path.startsWith('/api') || req.path.startsWith('/gw') || req.path.startsWith('/health') || req.path.startsWith('/metrics')) {
       return next();
     }
     res.sendFile(path.join(clientDist, 'index.html'));

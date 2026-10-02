@@ -32,6 +32,24 @@ spring:
       properties:
         spring.json.add.type.headers: false
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: analytics-service
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        analytics.event.processing: true
+
 app:
   kafka:
     topics:

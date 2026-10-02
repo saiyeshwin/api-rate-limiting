@@ -82,15 +82,25 @@ async function publishEvent(topic, message, key = null) {
           }
         ]
       });
+      const { kafkaEventsEmittedTotal } = require('./metrics');
+      kafkaEventsEmittedTotal.inc({ topic, status: 'success' });
       return { status: 'PUBLISHED_KAFKA', eventId: event.eventId, topic };
     } catch (err) {
       console.error(`[Kafka] Failed to publish event to ${topic}: ${err.message}. Queuing in memory.`);
+      try {
+        const { kafkaEventsEmittedTotal } = require('./metrics');
+        kafkaEventsEmittedTotal.inc({ topic, status: 'error' });
+      } catch (ignored) {}
     }
   }
 
   // Fallback in-memory store
   inMemoryEvents.push({ topic, key, event, timestamp: Date.now() });
   if (inMemoryEvents.length > 500) inMemoryEvents.shift(); // Bound memory
+  try {
+    const { kafkaEventsEmittedTotal } = require('./metrics');
+    kafkaEventsEmittedTotal.inc({ topic, status: 'mock_fallback' });
+  } catch (ignored) {}
   return { status: 'PUBLISHED_MOCK', eventId: event.eventId, topic };
 }
 

@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # 1. Scrape API Gateway (Node.js Express + prom-client)
+  - job_name: 'api-gateway'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['api-gateway:5000']
+        labels:
+          application: 'api-gateway'
+          environment: 'production'
+
+  # 2. Scrape Analytics Microservice (Java Spring Boot + Micrometer Prometheus)
+  - job_name: 'analytics-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['analytics-service:8081']
+        labels:
+          application: 'analytics-service'
+          environment: 'production'
+
+  # 3. Scrape Prometheus self-metrics
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
